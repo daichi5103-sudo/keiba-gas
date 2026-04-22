@@ -1,0 +1,240 @@
+<style>
+/* ============================================================
+   競馬メモ - スタイルシート
+   ============================================================ */
+
+:root {
+  --green-dark:  #1b5e20;
+  --green-main:  #2e7d32;
+  --green-light: #66bb6a;
+  --crimson:     #c62828;
+  --gold:        #f9a825;
+  --silver:      #9e9e9e;
+  --bronze:      #bf8c5a;
+  --bg:          #f4f6f4;
+}
+
+body {
+  background: var(--bg);
+  font-family: 'Hiragino Kaku Gothic Pro', 'ヒラギノ角ゴ Pro', 'メイリオ', Meiryo, sans-serif;
+  font-size: 0.9rem;
+  color: #212121;
+}
+
+/* ===== ナビゲーション ===== */
+.navbar-keiba {
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+}
+.navbar-keiba .nav-link:hover,
+.navbar-keiba .nav-link.active {
+  background: rgba(255,255,255,0.15);
+  color: #fff !important;
+}
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== レースカード ===== */
+.race-card {
+  border: none;
+  border-left: 5px solid var(--green-main);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.09);
+  transition: box-shadow 0.18s, transform 0.12s;
+  cursor: pointer;
+  background: #fff;
+}
+.race-card:hover {
+  box-shadow: 0 5px 16px rgba(0,0,0,0.14);
+  transform: translateY(-2px);
+}
+.race-card.grade-G1  { border-left-color: var(--crimson); }
+.race-card.grade-G2  { border-left-color: #1565c0; }
+.race-card.grade-G3  { border-left-color: #558b2f; }
+.race-card.grade-OP  { border-left-color: #6a1b9a; }
+.race-card.grade-3勝 { border-left-color: #00695c; }
+
+/* ===== グレードバッジ ===== */
+.badge-grade {
+  font-size: 0.72rem;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+  color: #fff;
+}
+.badge-G1  { background: var(--crimson) !important; }
+.badge-G2  { background: #1565c0 !important; }
+.badge-G3  { background: #558b2f !important; }
+.badge-OP  { background: #6a1b9a !important; }
+
+/* ===== 出馬表 ===== */
+.entry-table {
+  font-size: 0.82rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.entry-table thead th {
+  background: var(--green-dark);
+  color: #fff;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 7px 10px;
+  position: sticky;
+  top: 56px;
+  z-index: 10;
+  border: none;
+  font-size: 0.78rem;
+}
+.entry-table tbody td {
+  vertical-align: middle;
+  padding: 6px 10px;
+  border-bottom: 1px solid #e8e8e8;
+}
+.entry-table tbody tr:hover td {
+  background: rgba(27,94,32,0.04);
+}
+
+/* ===== 馬番丸バッジ ===== */
+.horse-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* ===== 着順 ===== */
+.pos-1 { color: var(--gold);   font-weight: 800; }
+.pos-2 { color: var(--silver); font-weight: 700; }
+.pos-3 { color: var(--bronze); font-weight: 700; }
+.finish-pos { font-size: 1rem; }
+
+/* ===== 上り強調 ===== */
+.last3f-best  { color: var(--crimson); font-weight: 700; }
+.last3f-2nd   { color: #1565c0;        font-weight: 600; }
+
+/* ===== 四つ角バッジ ===== */
+.corner-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-right: 2px;
+}
+.corner-front  { background: #e8f5e9; color: var(--green-dark); }
+.corner-mid    { background: #e3f2fd; color: #1565c0; }
+.corner-back   { background: #fff3e0; color: #e65100; }
+.corner-rear   { background: #fce4ec; color: var(--crimson); }
+
+/* ===== 有名人ピック ===== */
+.famous-pick {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.famous-hit  { background: #c8e6c9; color: #1b5e20; }
+.famous-miss { background: #ffcdd2; color: var(--crimson); }
+.famous-tbd  { background: #e0e0e0; color: #616161; }
+
+/* ===== メモプレビュー ===== */
+.note-preview {
+  font-size: 0.76rem;
+  color: #1565c0;
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+.note-preview.is-public { color: var(--green-main); }
+
+/* ===== セクションヘッダー ===== */
+.section-header {
+  border-left: 4px solid var(--green-main);
+  padding-left: 10px;
+  margin: 1.25rem 0 0.75rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--green-dark);
+}
+
+/* ===== グラフ ===== */
+.chart-wrap { position: relative; height: 210px; }
+.chart-wrap-sm { position: relative; height: 160px; }
+
+/* ===== 公開メモカード ===== */
+.public-note-card {
+  background: #f9fbe7;
+  border-left: 3px solid var(--green-main);
+  border-radius: 5px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+.public-note-card .note-body {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ===== マイメモカード ===== */
+.mynote-card {
+  border: none;
+  border-top: 3px solid var(--green-main);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  background: #fff;
+}
+.mynote-card.is-public { border-top-color: var(--green-light); }
+
+/* ===== フィルターバー ===== */
+.filter-bar {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  margin-bottom: 14px;
+}
+
+/* ===== ノートモーダルのコンテンツ表示 ===== */
+.note-md-content {
+  font-size: 0.875rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.note-md-content code {
+  background: #f1f3f4;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.82em;
+}
+
+/* ===== レスポンシブ ===== */
+@media (max-width: 768px) {
+  .entry-table { font-size: 0.78rem; }
+  .hide-sp { display: none !important; }
+  .entry-table tbody td { padding: 5px 6px; }
+}
+@media (min-width: 769px) {
+  .hide-pc { display: none !important; }
+}
+
+/* ===== ユーティリティ ===== */
+.toast-container { z-index: 9999; }
+.cursor-pointer  { cursor: pointer; }
+.font-monospace  { font-family: 'Menlo', 'Consolas', monospace; }
+</style>

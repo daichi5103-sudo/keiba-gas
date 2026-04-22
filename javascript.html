@@ -1,0 +1,981 @@
+<script>
+// ============================================================
+// 🏇 競馬メモ - クライアントサイド JavaScript
+// ============================================================
+
+// ===== グローバル状態 =====
+const state = {
+  userEmail:    null,
+  currentRaceId: null,
+  raceDetail:   null,
+  currentNote:  { raceId: null, horseName: null, hasExisting: false },
+};
+
+// モーダルインスタンス（DOMContentLoaded 後に初期化）
+let noteModal   = null;
+let horseModal  = null;
+let chartStore  = {}; // Chart.js インスタンスの管理
+
+// ===== 初期化 =====
+
+document.addEventListener('DOMContentLoaded', () => {
+  noteModal  = new bootstrap.Modal(document.getElementById('noteModal'));
+  horseModal = new bootstrap.Modal(document.getElementById('horseModal'));
+
+  // ユーザー情報取得
+  google.script.run
+    .withSuccessHandler(email => {
+      state.userEmail = email;
+      const el = document.getElementById('currentUserDisplay');
+      if (email && email !== 'anonymous@guest') {
+        el.innerHTML = `<i class="bi bi-person-circle me-1"></i>${escHtml(email.split('@')[0])}`;
+      } else {
+        el.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>未ログイン</span>`;
+      }
+    })
+    .withFailureHandler(() => {})
+    .getCurrentUser();
+
+  // ルーティング
+  router();
+  window.addEventListener('hashchange', router);
+});
+
+// ===== ルーター =====
+
+function router() {
+  const hash  = location.hash || '#races';
+  const parts = hash.replace('#', '').split('/');
+  const page  = parts[0];
+
+  // ナビのアクティブ状態を更新
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  const activeLink = document.querySelector(`.nav-link[href="#${page}"]`);
+  if (activeLink) activeLink.classList.add('active');
+
+  switch (page) {
+    case 'race':    renderRaceDetail(parts[1]);  break;
+    case 'mynotes': renderMyNotes();             break;
+    default:        renderRaceList();
+  }
+}
+
+// ===== ローディング / トースト =====
+
+function showLoading(msg = '読み込み中...') {
+  document.getElementById('app').innerHTML = `
+    <div class="d-flex justify-content-center align-items-center flex-column" style="height:55vh">
+      <div class="spinner-border text-success mb-3" style="width:2.5rem;height:2.5rem" role="status"></div>
+      <p class="text-muted small">${escHtml(msg)}</p>
+    </div>`;
+}
+
+function showError(msg) {
+  document.getElementById('app').innerHTML = `
+    <div class="alert alert-danger m-3">
+      <i class="bi bi-exclamation-circle me-2"></i>${escHtml(msg)}
+    </div>`;
+}
+
+function showToast(msg, type = 'success') {
+  const colors = { success: 'bg-success', warning: 'bg-warning text-dark', danger: 'bg-danger' };
+  const icons  = { success: 'check-circle-fill', warning: 'exclamation-triangle-fill', danger: 'x-circle-fill' };
+  const id     = 'toast-' + Date.now();
+
+  let cont = document.querySelector('.toast-container');
+  if (!cont) {
+    cont = document.createElement('div');
+    cont.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+    document.body.appendChild(cont);
+  }
+  cont.insertAdjacentHTML('beforeend', `
+    <div id="${id}" class="toast align-items-center text-white ${colors[type] || 'bg-secondary'} border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="bi bi-${icons[type] || 'info-circle-fill'} me-2"></i>${escHtml(msg)}
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>`);
+  const el = document.getElementById(id);
+  new bootstrap.Toast(el, { delay: 3000 }).show();
+  el.addEventListener('hidden.bs.toast', () => el.remove());
+}
+
+// ============================================================
+// ===== レース一覧ページ =====
+// ============================================================
+
+function renderRaceList(filters = {}) {
+  showLoading('レース一覧を読み込み中...');
+  google.script.run
+    .withSuccessHandler(json => renderRaceListUI(JSON.parse(json), filters))
+    .withFailureHandler(err => showError(err.message))
+    .getRaces(JSON.stringify(filters));
+}
+
+function renderRaceListUI(races, filters = {}) {
+  const venues = [...new Set(races.map(r => r.venue))].sort();
+  const dates  = [...new Set(races.map(r => r.date))].sort().reverse().slice(0, 30);
+
+  // 日付でグループ化
+  const grouped = {};
+  races.forEach(r => {
+    if (!grouped[r.date]) grouped[r.date] = [];
+    grouped[r.date].push(r);
+  });
+  const sortedDates = Object.keys(grouped).sort().reverse();
+
+  document.getElementById('app').innerHTML = `
+    <!-- フィルターバー -->
+    <div class="filter-bar">
+      <div class="row g-2 align-items-end">
+        <div class="col-sm-4">
+          <label class="form-label form-label-sm mb-1 text-muted">キーワード</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="fSearch" class="form-control" placeholder="レース名・競馬場"
+              value="${escHtml(filters.search || '')}"
+              onkeydown="if(event.key==='Enter') applyFilters()">
+          </div>
+        </div>
+        <div class="col-sm-3">
+          <label class="form-label form-label-sm mb-1 text-muted">日付</label>
+          <select id="fDate" class="form-select form-select-sm">
+            <option value="">すべて</option>
+            ${dates.map(d => `<option value="${d}" ${filters.date===d?'selected':''}>${formatDateJP(d)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-sm-3">
+          <label class="form-label form-label-sm mb-1 text-muted">競馬場</label>
+          <select id="fVenue" class="form-select form-select-sm">
+            <option value="">すべて</option>
+            ${venues.map(v => `<option value="${v}" ${filters.venue===v?'selected':''}>${escHtml(v)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-sm-2 d-flex gap-1">
+          <button class="btn btn-success btn-sm flex-grow-1" onclick="applyFilters()">
+            <i class="bi bi-funnel"></i> 絞込
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="renderRaceList()" title="リセット">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 件数 -->
+    <div class="text-muted small mb-2">
+      <i class="bi bi-list-ul me-1"></i>${races.length} 件のレース
+    </div>
+
+    ${sortedDates.length === 0 ? `
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-search fs-1 d-block mb-2"></i>
+        レースが見つかりませんでした。
+      </div>` : ''}
+
+    ${sortedDates.map(date => `
+      <div class="mb-4">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="bi bi-calendar3 text-muted"></i>
+          <span class="fw-bold text-secondary small">${formatDateJP(date)}</span>
+        </div>
+        <div class="row g-2">
+          ${grouped[date].map(race => renderRaceCard(race)).join('')}
+        </div>
+      </div>`).join('')}
+  `;
+}
+
+function renderRaceCard(race) {
+  const gradeClass = `grade-${race.grade || ''}`;
+  const badgeClass = `badge-${race.grade || ''}`;
+  return `
+    <div class="col-md-6 col-lg-4">
+      <div class="card race-card ${gradeClass} h-100"
+        onclick="location.hash='#race/${escHtml(race.race_id)}'">
+        <div class="card-body py-2 px-3">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="fw-bold">${escHtml(race.race_name || '（名称不明）')}</div>
+              <small class="text-muted">${escHtml(race.venue)} ${race.race_num ? race.race_num + 'R' : ''}</small>
+            </div>
+            ${race.grade ? `<span class="badge-grade badge-${race.grade} ms-2">${escHtml(race.grade)}</span>` : ''}
+          </div>
+          <div class="d-flex gap-2 flex-wrap mt-1">
+            <small class="text-muted"><i class="bi bi-arrows-expand-vertical me-1"></i>${race.distance || '?'}m</small>
+            <small class="text-muted">${escHtml(race.surface || '')}</small>
+            ${race.weather ? `<small class="text-muted">${weatherEmoji(race.weather)} ${escHtml(race.weather)}</small>` : ''}
+            ${race.track_condition ? `<small class="text-muted">馬場:${escHtml(race.track_condition)}</small>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function applyFilters() {
+  const filters = {};
+  const s = document.getElementById('fSearch')?.value.trim();
+  const d = document.getElementById('fDate')?.value;
+  const v = document.getElementById('fVenue')?.value;
+  if (s) filters.search = s;
+  if (d) filters.date   = d;
+  if (v) filters.venue  = v;
+  renderRaceList(filters);
+}
+
+// ============================================================
+// ===== レース詳細ページ =====
+// ============================================================
+
+function renderRaceDetail(raceId) {
+  if (!raceId) { location.hash = '#races'; return; }
+  state.currentRaceId = raceId;
+  showLoading('レース詳細を読み込み中...');
+
+  google.script.run
+    .withSuccessHandler(json => {
+      state.raceDetail = JSON.parse(json);
+      renderRaceDetailUI(state.raceDetail);
+    })
+    .withFailureHandler(err => showError(err.message))
+    .getRaceDetail(raceId);
+}
+
+function renderRaceDetailUI(data) {
+  const { race, entries, results, notes, famous, userEmail } = data;
+  state.userEmail = userEmail;
+
+  const hasResults = results && results.length > 0;
+
+  // マップを構築
+  const myNoteMap     = {};  // horse_name → 自分のメモ
+  const publicNoteArr = [];  // 他人の公開メモ一覧
+  notes.forEach(n => {
+    if (n.is_own) myNoteMap[n.horse_name] = n;
+    if (n.is_public && !n.is_own) publicNoteArr.push(n);
+  });
+
+  const famousMap = {};  // horse_name → [pick, ...]
+  famous.forEach(f => {
+    if (!famousMap[f.horse_name]) famousMap[f.horse_name] = [];
+    famousMap[f.horse_name].push(f);
+  });
+
+  const resultMap = {};  // horse_name → result
+  results.forEach(r => { resultMap[r.horse_name] = r; });
+
+  // 上り最小値（ベストタイム強調用）
+  const allLast3f = results.map(r => parseFloat(r.last_3f)).filter(v => !isNaN(v) && v > 0);
+  const bestLast3f = allLast3f.length ? Math.min(...allLast3f) : null;
+  const best2Last3f = allLast3f.length > 1 ? allLast3f.sort((a,b) => a-b)[1] : null;
+
+  const html = `
+    <!-- パンくずリスト -->
+    <nav aria-label="breadcrumb" class="mb-3">
+      <ol class="breadcrumb small mb-0">
+        <li class="breadcrumb-item"><a href="#races" class="text-decoration-none text-success">レース一覧</a></li>
+        <li class="breadcrumb-item active">${escHtml(race.race_name || raceId)}</li>
+      </ol>
+    </nav>
+
+    <!-- レースヘッダー -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+          <h4 class="mb-0 fw-bold">${escHtml(race.race_name || '（レース名不明）')}</h4>
+          ${race.grade ? `<span class="badge-grade badge-${race.grade}">${escHtml(race.grade)}</span>` : ''}
+          ${hasResults ? '<span class="badge bg-success fw-normal">結果あり</span>' : '<span class="badge bg-warning text-dark fw-normal">出走予定</span>'}
+        </div>
+        <div class="d-flex flex-wrap gap-3 text-muted" style="font-size:0.85rem">
+          <span><i class="bi bi-calendar3 me-1"></i>${formatDateJP(race.date)}</span>
+          <span><i class="bi bi-geo-alt me-1"></i>${escHtml(race.venue || '')} ${race.race_num ? race.race_num + 'R' : ''}</span>
+          <span><i class="bi bi-signpost-2 me-1"></i>${race.distance || '?'}m ${escHtml(race.surface || '')}</span>
+          ${race.weather       ? `<span>${weatherEmoji(race.weather)} ${escHtml(race.weather)}</span>` : ''}
+          ${race.track_condition ? `<span><i class="bi bi-droplet me-1"></i>馬場: ${escHtml(race.track_condition)}</span>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- 出馬表ヘッダー -->
+    <h6 class="section-header"><i class="bi bi-table me-1"></i>出馬表・メモ</h6>
+    ${state.userEmail === 'anonymous@guest' ? `
+      <div class="alert alert-warning py-2 small mb-2">
+        <i class="bi bi-lock me-1"></i>メモの記入にはGoogleアカウントでのログインが必要です。
+      </div>` : ''}
+
+    <!-- テーブル -->
+    <div class="table-responsive mb-4">
+      <table class="table table-sm table-hover entry-table mb-0">
+        <thead>
+          <tr>
+            <th style="width:36px">番</th>
+            <th>馬名</th>
+            <th class="hide-sp">騎手</th>
+            <th class="hide-sp">斤量</th>
+            <th>オッズ</th>
+            ${hasResults ? `
+              <th>着順</th>
+              <th>上り</th>
+              <th class="hide-sp">四つ角</th>
+            ` : ''}
+            <th class="hide-sp">有名人</th>
+            <th>メモ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${entries.map(entry => {
+            const result     = resultMap[entry.horse_name];
+            const myNote     = myNoteMap[entry.horse_name];
+            const famPicks   = famousMap[entry.horse_name] || [];
+            const pos        = result ? Number(result.finish_pos) : null;
+            const last3fVal  = result ? parseFloat(result.last_3f) : null;
+            const isBest     = last3fVal && bestLast3f && last3fVal === bestLast3f;
+            const is2nd      = last3fVal && best2Last3f && last3fVal === best2Last3f && !isBest;
+
+            return `
+              <tr>
+                <!-- 馬番 -->
+                <td>
+                  <span class="horse-num" style="${horseNumStyle(Number(entry.horse_num))}">
+                    ${entry.horse_num}
+                  </span>
+                </td>
+
+                <!-- 馬名（クリックで成績モーダル） -->
+                <td>
+                  <a href="#" class="text-decoration-none fw-bold ${pos===1?'pos-1':pos===2?'pos-2':pos===3?'pos-3':''}"
+                    data-horse="${escHtmlAttr(entry.horse_name)}"
+                    onclick="openHorseModal(this.dataset.horse); return false;">
+                    ${escHtml(entry.horse_name)}
+                  </a>
+                  <div class="text-muted hide-sp" style="font-size:0.73rem">${escHtml(entry.trainer || '')}</div>
+                </td>
+
+                <!-- 騎手 -->
+                <td class="hide-sp">${escHtml(entry.jockey || '')}</td>
+
+                <!-- 斤量 -->
+                <td class="hide-sp">${entry.weight ? entry.weight + 'kg' : '-'}</td>
+
+                <!-- オッズ -->
+                <td>
+                  <span class="fw-bold">${entry.odds ? entry.odds + '倍' : '-'}</span>
+                  ${entry.popularity ? `<small class="text-muted ms-1">${entry.popularity}人</small>` : ''}
+                </td>
+
+                ${hasResults ? `
+                  <!-- 着順 -->
+                  <td class="finish-pos ${pos===1?'pos-1':pos===2?'pos-2':pos===3?'pos-3':''}">
+                    ${result ? result.finish_pos + '着' : '-'}
+                    ${result && result.margin ? `<small class="text-muted ms-1">${escHtml(result.margin)}</small>` : ''}
+                  </td>
+
+                  <!-- 上り3F -->
+                  <td class="${isBest?'last3f-best':is2nd?'last3f-2nd':''}">
+                    ${result ? result.last_3f : '-'}
+                    ${isBest ? ' <i class="bi bi-star-fill" style="font-size:0.7rem;color:var(--gold)" title="上り最速"></i>' : ''}
+                  </td>
+
+                  <!-- 四つ角 -->
+                  <td class="hide-sp">${result ? renderCornerBadges(result) : '-'}</td>
+                ` : ''}
+
+                <!-- 有名人予想 -->
+                <td class="hide-sp">
+                  ${famPicks.map(f => {
+                    const cls = f.result_pos == null || f.result_pos === ''
+                      ? 'famous-tbd'
+                      : Number(f.result_pos) <= 3 ? 'famous-hit' : 'famous-miss';
+                    return `<span class="famous-pick ${cls}" title="${escHtmlAttr(f.person_name)}: ${escHtmlAttr(f.pick_type)}${f.result_pos?(' → '+f.result_pos+'着'):''}">
+                      ${escHtml(f.person_name)}
+                    </span>`;
+                  }).join(' ')}
+                </td>
+
+                <!-- メモ列 -->
+                <td>
+                  ${myNote ? `
+                    <div class="d-flex align-items-center gap-1">
+                      ${myNote.is_public
+                        ? '<i class="bi bi-globe2 text-success" style="font-size:0.7rem" title="公開中"></i>'
+                        : '<i class="bi bi-lock text-secondary" style="font-size:0.7rem" title="非公開"></i>'}
+                      <span class="note-preview ${myNote.is_public ? 'is-public' : ''}"
+                        title="${escHtmlAttr(myNote.content)}"
+                        data-race="${escHtmlAttr(race.race_id)}"
+                        data-horse="${escHtmlAttr(entry.horse_name)}"
+                        onclick="openNoteModal(this.dataset.race, this.dataset.horse)">
+                        ${escHtml(myNote.content.slice(0, 22))}${myNote.content.length > 22 ? '…' : ''}
+                      </span>
+                      <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-1"
+                        style="font-size:0.7rem;line-height:1.6"
+                        data-race="${escHtmlAttr(race.race_id)}"
+                        data-horse="${escHtmlAttr(entry.horse_name)}"
+                        onclick="openNoteModal(this.dataset.race, this.dataset.horse)">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                    </div>
+                  ` : `
+                    <button class="btn btn-outline-secondary btn-sm py-0 px-2"
+                      style="font-size:0.76rem;line-height:1.7"
+                      data-race="${escHtmlAttr(race.race_id)}"
+                      data-horse="${escHtmlAttr(entry.horse_name)}"
+                      onclick="openNoteModal(this.dataset.race, this.dataset.horse)">
+                      <i class="bi bi-plus-lg me-1"></i>メモ
+                    </button>
+                  `}
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    ${hasResults ? `
+    <!-- グラフセクション -->
+    <h6 class="section-header"><i class="bi bi-graph-up me-1"></i>グラフ</h6>
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body pb-2">
+            <div class="small fw-bold text-muted mb-2">
+              <i class="bi bi-bar-chart-fill me-1 text-danger"></i>上り3F タイム比較
+            </div>
+            <div class="chart-wrap"><canvas id="lastFChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body pb-2">
+            <div class="small fw-bold text-muted mb-2">
+              <i class="bi bi-activity me-1 text-primary"></i>四つ角ポジション推移
+            </div>
+            <div class="chart-wrap"><canvas id="cornerChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+
+    ${publicNoteArr.length > 0 ? `
+    <!-- みんなの共有メモ -->
+    <h6 class="section-header">
+      <i class="bi bi-people-fill me-1 text-success"></i>みんなの共有メモ
+      <small class="text-muted fw-normal ms-2">${publicNoteArr.length}件</small>
+    </h6>
+    <div class="mb-4">
+      ${publicNoteArr.map(n => `
+        <div class="public-note-card">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <strong class="text-success" style="font-size:0.82rem">
+              <i class="bi bi-emoji-neutral me-1"></i>${escHtml(n.horse_name)}
+            </strong>
+            <small class="text-muted">${escHtml(n.updated_at || '')}</small>
+          </div>
+          <div class="note-body">${mdToHtml(escHtml(n.content))}</div>
+          ${n.tags ? `<div class="mt-1">
+            ${n.tags.split(',').map(t => t.trim() ? `<span class="badge bg-light text-dark me-1" style="font-size:0.72rem">${escHtml(t.trim())}</span>` : '').join('')}
+          </div>` : ''}
+        </div>`).join('')}
+    </div>
+    ` : ''}
+  `;
+
+  document.getElementById('app').innerHTML = html;
+
+  if (hasResults) {
+    requestAnimationFrame(() => {
+      renderLastFChart(results);
+      renderCornerChart(results);
+    });
+  }
+}
+
+// ============================================================
+// ===== メモモーダル =====
+// ============================================================
+
+function openNoteModal(raceId, horseName) {
+  const existingNote = state.raceDetail?.notes?.find(n => n.is_own && n.horse_name === horseName);
+  state.currentNote  = { raceId, horseName, hasExisting: !!existingNote };
+
+  const race = state.raceDetail?.race || {};
+  document.getElementById('noteHorseName').textContent = horseName;
+  document.getElementById('noteRaceInfo').textContent  =
+    [race.race_name, race.venue, formatDateJP(race.date)].filter(Boolean).join('　');
+
+  document.getElementById('noteContent').value  = existingNote?.content  || '';
+  document.getElementById('noteTags').value     = existingNote?.tags     || '';
+  document.getElementById('noteIsPublic').checked = existingNote?.is_public || false;
+
+  const delBtn = document.getElementById('deleteNoteBtn');
+  delBtn.style.display = existingNote ? '' : 'none!important';
+  delBtn.style.setProperty('display', existingNote ? 'inline-flex' : 'none', 'important');
+
+  noteModal.show();
+  setTimeout(() => document.getElementById('noteContent').focus(), 400);
+}
+
+function handleSaveNote() {
+  const { raceId, horseName } = state.currentNote;
+  const content  = document.getElementById('noteContent').value.trim();
+
+  if (!content) {
+    showToast('メモを入力してください', 'warning');
+    document.getElementById('noteContent').focus();
+    return;
+  }
+
+  const noteData = {
+    race_id:   raceId,
+    horse_name: horseName,
+    content,
+    is_public: document.getElementById('noteIsPublic').checked,
+    tags:      document.getElementById('noteTags').value.trim(),
+  };
+
+  google.script.run
+    .withSuccessHandler(json => {
+      const res = JSON.parse(json);
+      if (res.success) {
+        noteModal.hide();
+        showToast('メモを保存しました ✓');
+        renderRaceDetail(raceId);
+      } else {
+        showToast(res.message || '保存に失敗しました', 'danger');
+      }
+    })
+    .withFailureHandler(err => showToast(err.message, 'danger'))
+    .saveNote(JSON.stringify(noteData));
+}
+
+function handleDeleteNote() {
+  const { raceId, horseName } = state.currentNote;
+  if (!confirm(`「${horseName}」のメモを削除しますか？`)) return;
+
+  google.script.run
+    .withSuccessHandler(json => {
+      const res = JSON.parse(json);
+      if (res.success) {
+        noteModal.hide();
+        showToast('メモを削除しました', 'warning');
+        renderRaceDetail(raceId);
+      } else {
+        showToast(res.message || '削除に失敗しました', 'danger');
+      }
+    })
+    .withFailureHandler(err => showToast(err.message, 'danger'))
+    .deleteNote(raceId, horseName);
+}
+
+// ============================================================
+// ===== 馬の成績履歴モーダル =====
+// ============================================================
+
+function openHorseModal(horseName) {
+  document.getElementById('horseModalName').textContent = horseName;
+  document.getElementById('horseModalBody').innerHTML = `
+    <div class="text-center p-5">
+      <div class="spinner-border text-success" role="status"></div>
+    </div>`;
+  horseModal.show();
+
+  google.script.run
+    .withSuccessHandler(json => renderHorseHistoryUI(JSON.parse(json), horseName))
+    .withFailureHandler(err => {
+      document.getElementById('horseModalBody').innerHTML =
+        `<div class="alert alert-danger m-2">${escHtml(err.message)}</div>`;
+    })
+    .getHorseHistory(horseName);
+}
+
+function renderHorseHistoryUI(history, horseName) {
+  if (!history.length) {
+    document.getElementById('horseModalBody').innerHTML = `
+      <div class="text-center p-5 text-muted">
+        <i class="bi bi-bar-chart fs-1 d-block mb-2"></i>
+        成績データがありません
+      </div>`;
+    return;
+  }
+
+  document.getElementById('horseModalBody').innerHTML = `
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="small fw-bold text-muted mb-1"><i class="bi bi-graph-down me-1"></i>着順推移</div>
+        <div class="chart-wrap-sm"><canvas id="hPosChart"></canvas></div>
+      </div>
+      <div class="col-md-6">
+        <div class="small fw-bold text-muted mb-1"><i class="bi bi-stopwatch me-1"></i>上り3Fタイム</div>
+        <div class="chart-wrap-sm"><canvas id="hLastFChart"></canvas></div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover" style="font-size:0.82rem">
+        <thead class="table-dark">
+          <tr>
+            <th>日付</th><th>レース</th><th>競馬場</th><th>距離</th>
+            <th>着順</th><th>タイム</th><th>上り</th><th>四つ角</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${history.map(r => {
+            const pos = Number(r.finish_pos);
+            return `
+              <tr>
+                <td class="text-nowrap">${formatDateJP(r.race?.date)}</td>
+                <td>
+                  <a href="#race/${escHtml(r.race_id)}"
+                    class="text-decoration-none text-success"
+                    onclick="horseModal.hide()">
+                    ${escHtml(r.race?.race_name || r.race_id)}
+                  </a>
+                  ${r.race?.grade ? `<span class="badge-grade badge-${r.race.grade} ms-1" style="font-size:0.65rem">${escHtml(r.race.grade)}</span>` : ''}
+                </td>
+                <td>${escHtml(r.race?.venue || '')}</td>
+                <td class="text-nowrap">${r.race?.distance || '?'}m ${escHtml(r.race?.surface || '')}</td>
+                <td class="fw-bold ${pos===1?'pos-1':pos===2?'pos-2':pos===3?'pos-3':''}">${r.finish_pos}着</td>
+                <td class="text-nowrap">${escHtml(r.finish_time || '-')}</td>
+                <td>${r.last_3f || '-'}</td>
+                <td>${renderCornerBadges(r)}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  requestAnimationFrame(() => {
+    renderHorsePosChart(history);
+    renderHorseLastFChart(history);
+  });
+}
+
+// ============================================================
+// ===== マイメモページ =====
+// ============================================================
+
+function renderMyNotes() {
+  showLoading('マイメモを読み込み中...');
+  google.script.run
+    .withSuccessHandler(json => renderMyNotesUI(JSON.parse(json)))
+    .withFailureHandler(err => showError(err.message))
+    .getMyNotes();
+}
+
+function renderMyNotesUI(notes) {
+  const pub  = notes.filter(n => n.is_public).length;
+  const priv = notes.length - pub;
+
+  document.getElementById('app').innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h5 class="mb-0 fw-bold">
+        <i class="bi bi-journal-text me-2 text-success"></i>マイメモ
+      </h5>
+      <div class="d-flex gap-2">
+        <span class="badge bg-success"><i class="bi bi-globe2 me-1"></i>${pub}件 公開</span>
+        <span class="badge bg-secondary"><i class="bi bi-lock me-1"></i>${priv}件 非公開</span>
+      </div>
+    </div>
+
+    ${notes.length === 0 ? `
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-journal-x fs-1 d-block mb-3"></i>
+        <p>まだメモがありません。<br>レース詳細の出馬表から各馬にメモを書いてみましょう。</p>
+        <a href="#races" class="btn btn-success btn-sm">
+          <i class="bi bi-list-ul me-1"></i>レース一覧へ
+        </a>
+      </div>` : `
+      <div class="row g-2">
+        ${notes.map(n => `
+          <div class="col-md-6 col-lg-4">
+            <div class="card mynote-card h-100 ${n.is_public ? 'is-public' : ''}">
+              <div class="card-body py-2 px-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <div class="fw-bold">
+                      <i class="bi bi-emoji-neutral me-1 text-muted"></i>${escHtml(n.horse_name)}
+                    </div>
+                    <small class="text-muted">${escHtml(n.race_id)}</small>
+                  </div>
+                  <span class="badge ${n.is_public ? 'bg-success' : 'bg-secondary'}" style="font-size:0.7rem">
+                    <i class="bi bi-${n.is_public ? 'globe2' : 'lock'} me-1"></i>${n.is_public ? '公開' : '非公開'}
+                  </span>
+                </div>
+                <div class="note-md-content mb-2" style="max-height:100px;overflow:hidden">
+                  ${mdToHtml(escHtml(n.content))}
+                </div>
+                ${n.tags ? `<div class="mb-1">
+                  ${n.tags.split(',').map(t => t.trim() ? `<span class="badge bg-light text-dark me-1" style="font-size:0.7rem">${escHtml(t.trim())}</span>` : '').join('')}
+                </div>` : ''}
+                <div class="text-muted" style="font-size:0.72rem">
+                  <i class="bi bi-clock me-1"></i>${escHtml(n.updated_at)}
+                </div>
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>`}
+  `;
+}
+
+// ============================================================
+// ===== グラフ =====
+// ============================================================
+
+function destroyChart(id) {
+  if (chartStore[id]) { chartStore[id].destroy(); delete chartStore[id]; }
+}
+
+// 上り3F 棒グラフ
+function renderLastFChart(results) {
+  destroyChart('lastFChart');
+  const cv = document.getElementById('lastFChart');
+  if (!cv) return;
+
+  const sorted = [...results].sort((a, b) => Number(a.finish_pos) - Number(b.finish_pos));
+  const labels = sorted.map(r => r.horse_name);
+  const data   = sorted.map(r => parseFloat(r.last_3f) || 0);
+  const minVal = Math.min(...data.filter(d => d > 0));
+
+  chartStore['lastFChart'] = new Chart(cv, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '上り3F（秒）',
+        data,
+        backgroundColor: data.map(d => d === minVal ? 'rgba(249,168,37,0.85)' : 'rgba(102,187,106,0.75)'),
+        borderColor:     data.map(d => d === minVal ? '#e65100' : '#2e7d32'),
+        borderWidth: 1.5,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 30 } },
+        y: {
+          min: Math.max(0, minVal - 1.5),
+          title: { display: true, text: '秒', font: { size: 10 } },
+          ticks: { font: { size: 10 } },
+        },
+      },
+    },
+  });
+}
+
+// 四つ角ポジション 折れ線グラフ
+function renderCornerChart(results) {
+  destroyChart('cornerChart');
+  const cv = document.getElementById('cornerChart');
+  if (!cv) return;
+
+  const palette = [
+    '#e53935','#1e88e5','#43a047','#fb8c00',
+    '#8e24aa','#00acc1','#6d4c41','#546e7a',
+  ];
+  const limited = results.slice(0, 8);
+
+  chartStore['cornerChart'] = new Chart(cv, {
+    type: 'line',
+    data: {
+      labels: ['1角', '2角', '3角', '4角'],
+      datasets: limited.map((r, i) => ({
+        label: r.horse_name,
+        data:  [r.corner_1, r.corner_2, r.corner_3, r.corner_4]
+                 .map(v => v !== '' && v != null ? Number(v) : null),
+        borderColor:     palette[i % palette.length],
+        backgroundColor: palette[i % palette.length] + '22',
+        fill: false,
+        tension: 0.3,
+        pointRadius: 4,
+        borderWidth: 2,
+        spanGaps: true,
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 12, padding: 6 } },
+      },
+      scales: {
+        y: {
+          reverse: true,
+          min: 1,
+          title: { display: true, text: '順位', font: { size: 10 } },
+          ticks: { stepSize: 1, font: { size: 10 } },
+        },
+        x: { ticks: { font: { size: 11 } } },
+      },
+    },
+  });
+}
+
+// 馬の着順推移
+function renderHorsePosChart(history) {
+  destroyChart('hPosChart');
+  const cv = document.getElementById('hPosChart');
+  if (!cv) return;
+
+  const labels = history.map(r => r.race?.date ? r.race.date.slice(5) : r.race_id);
+  const data   = history.map(r => Number(r.finish_pos) || null);
+
+  chartStore['hPosChart'] = new Chart(cv, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '着順',
+        data,
+        borderColor: '#2e7d32',
+        backgroundColor: 'rgba(46,125,50,0.12)',
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: data.map(d => d === 1 ? '#f9a825' : '#2e7d32'),
+        pointRadius: 5,
+        borderWidth: 2,
+        spanGaps: true,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          reverse: true, min: 1,
+          title: { display: true, text: '着順', font: { size: 10 } },
+          ticks: { stepSize: 1, font: { size: 10 } },
+        },
+        x: { ticks: { font: { size: 10 }, maxRotation: 30 } },
+      },
+    },
+  });
+}
+
+// 馬の上り3F推移
+function renderHorseLastFChart(history) {
+  destroyChart('hLastFChart');
+  const cv = document.getElementById('hLastFChart');
+  if (!cv) return;
+
+  const labels = history.map(r => r.race?.date ? r.race.date.slice(5) : r.race_id);
+  const data   = history.map(r => parseFloat(r.last_3f) || null);
+
+  chartStore['hLastFChart'] = new Chart(cv, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '上り3F',
+        data,
+        borderColor: '#1565c0',
+        backgroundColor: 'rgba(21,101,192,0.10)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        borderWidth: 2,
+        spanGaps: true,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          title: { display: true, text: '秒', font: { size: 10 } },
+          ticks: { font: { size: 10 } },
+        },
+        x: { ticks: { font: { size: 10 }, maxRotation: 30 } },
+      },
+    },
+  });
+}
+
+// ============================================================
+// ===== ヘルパー関数 =====
+// ============================================================
+
+// HTML エスケープ（XSS 防止）
+function escHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// 属性値用エスケープ（' も対象）
+function escHtmlAttr(str) {
+  return escHtml(str).replace(/'/g, '&#39;');
+}
+
+// 軽量 Markdown → HTML（escHtml 済みの文字列に適用）
+function mdToHtml(escaped) {
+  return escaped
+    .replace(/\*\*(.+?)\*\*/g,  '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,      '<em>$1</em>')
+    .replace(/`(.+?)`/g,        '<code>$1</code>')
+    .replace(/\n/g,             '<br>');
+}
+
+// 日付フォーマット（例: 2025-04-13 → 2025/04/13(日)）
+function formatDateJP(dateStr) {
+  if (!dateStr) return '';
+  try {
+    // yyyy-MM-dd → Date（タイムゾーンずれ防止のためローカル解釈）
+    const [y, m, d] = String(dateStr).split('-').map(Number);
+    if (!y || !m || !d) return String(dateStr);
+    const dt   = new Date(y, m - 1, d);
+    const days = ['日','月','火','水','木','金','土'];
+    return `${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}(${days[dt.getDay()]})`;
+  } catch (e) {
+    return String(dateStr);
+  }
+}
+
+// 天気絵文字
+function weatherEmoji(w) {
+  return { '晴': '☀️', '曇': '☁️', '雨': '🌧️', '小雨': '🌦️', '雪': '❄️', '雷': '⛈️' }[w] || '🌡️';
+}
+
+// 馬番カラー（JRA 公式に準拠）
+function horseNumStyle(num) {
+  const styles = [
+    '',
+    'background:#ffffff;color:#333;border:1px solid #ccc', // 1: 白
+    'background:#000000;color:#fff',                         // 2: 黒
+    'background:#cc0000;color:#fff',                         // 3: 赤
+    'background:#003399;color:#fff',                         // 4: 青
+    'background:#ffcc00;color:#333',                         // 5: 黄
+    'background:#006633;color:#fff',                         // 6: 緑
+    'background:#ff6600;color:#fff',                         // 7: 橙
+    'background:#ff6699;color:#fff',                         // 8: 桃
+    'background:#8800cc;color:#fff',                         // 9: 紫
+    'background:#33cccc;color:#333',                         // 10: 水色
+    'background:#ff99cc;color:#333',                         // 11: 桃白（以降は繰り返しでも可）
+    'background:#99cc33;color:#333',
+    'background:#cc9966;color:#fff',
+    'background:#6699cc;color:#fff',
+    'background:#cc3366;color:#fff',
+    'background:#669900;color:#fff',
+    'background:#996633;color:#fff',
+    'background:#336699;color:#fff',
+  ];
+  return styles[num] || 'background:#607d8b;color:#fff';
+}
+
+// 四つ角バッジ HTML
+function renderCornerBadges(result) {
+  const corners = [result.corner_1, result.corner_2, result.corner_3, result.corner_4];
+  const hasData = corners.some(c => c !== '' && c != null);
+  if (!hasData) return '-';
+  return corners.map((c, i) => {
+    if (c === '' || c == null) return '';
+    const n   = Number(c);
+    const cls = n <= 3 ? 'corner-front' : n <= 6 ? 'corner-mid' : n <= 10 ? 'corner-back' : 'corner-rear';
+    return `<span class="corner-badge ${cls}" title="${['1角','2角','3角','4角'][i]}: ${n}番手">${n}</span>`;
+  }).join('');
+}
+</script>
