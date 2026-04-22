@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HORSE LOG - Logo Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0e1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+      gap: 50px;
+      font-family: sans-serif;
+    }
+    .section-label {
+      color: rgba(255,255,255,0.25);
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: -35px;
+      align-self: center;
+    }
+
+    /* ===== Ver.1 横型（メイン） ===== */
+    .logo-main {
+      position: relative;
+      background: linear-gradient(135deg, #060d1f 0%, #0d1a35 60%, #091428 100%);
+      padding: 28px 44px 28px 28px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(232,184,75,0.15);
+      overflow: hidden;
+    }
+    /* 星 */
+    .logo-main::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 70% 20%, rgba(232,184,75,0.06) 0%, transparent 50%),
+        radial-gradient(circle at 85% 75%, rgba(100,150,255,0.04) 0%, transparent 40%);
+      pointer-events: none;
+    }
+    /* 上部ゴールドライン */
+    .logo-main::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(to right, transparent, #e8b84b 30%, #e8b84b 70%, transparent);
+    }
+    .emblem {
+      width: 88px;
+      height: 88px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .emblem svg {
+      width: 88px;
+      height: 88px;
+    }
+    .text-block {
+      display: flex;
+      flex-direction: column;
+      line-height: 1;
+    }
+    .t-horse {
+      font-family: 'Bebas Neue', 'Impact', sans-serif;
+      font-size: 58px;
+      color: #ffffff;
+      letter-spacing: 10px;
+      line-height: 1;
+      text-shadow: 0 0 40px rgba(255,255,255,0.15);
+    }
+    .t-divider {
+      height: 1.5px;
+      background: linear-gradient(to right, #e8b84b 65%, transparent);
+      margin: 3px 0 4px;
+    }
+    .t-log {
+      font-family: 'Bebas Neue', 'Impact', sans-serif;
+      font-size: 58px;
+      color: #e8b84b;
+      letter-spacing: 20px;
+      line-height: 1;
+      text-shadow: 0 0 30px rgba(232,184,75,0.4);
+    }
+    .t-tag {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 9.5px;
+      color: rgba(232,184,75,0.4);
+      letter-spacing: 4px;
+      margin-top: 7px;
+    }
+
+    /* ===== Ver.2 アイコン（スクエア） ===== */
+    .logo-square {
+      width: 200px;
+      height: 200px;
+      background: linear-gradient(145deg, #0d1a35, #060d1f);
+      border-radius: 32px;
+      border: 1px solid rgba(232,184,75,0.25);
+      box-shadow: 0 25px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(232,184,75,0.15);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    .logo-square::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2.5px;
+      background: linear-gradient(to right, transparent, #e8b84b, transparent);
+    }
+    .sq-icon {
+      font-size: 66px;
+      filter: drop-shadow(0 0 16px rgba(232,184,75,0.5));
+      line-height: 1;
+    }
+    .sq-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 30px;
+      letter-spacing: 5px;
+      color: white;
+    }
+    .sq-name span { color: #e8b84b; }
+    .sq-sub {
+      font-size: 8.5px;
+      color: rgba(232,184,75,0.35);
+      letter-spacing: 3.5px;
+      font-family: 'Rajdhani', sans-serif;
+    }
+
+    /* ===== Ver.3 ミニマル（水平） ===== */
+    .logo-minimal {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .min-icon {
+      font-size: 72px;
+      line-height: 1;
+      filter: drop-shadow(0 0 12px rgba(232,184,75,0.3));
+    }
+    .min-vline {
+      width: 2px;
+      height: 64px;
+      background: linear-gradient(to bottom, transparent, #e8b84b, transparent);
+      border-radius: 2px;
+    }
+    .min-text {
+      display: flex;
+      flex-direction: column;
+    }
+    .min-top {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 8px;
+      color: rgba(255,255,255,0.6);
+      line-height: 1;
+    }
+    .min-bot {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 8px;
+      color: #e8b84b;
+      line-height: 1;
+    }
+
+    /* ===== Ver.4 ライト（白背景） ===== */
+    .logo-light {
+      background: #f8f5ee;
+      padding: 28px 44px 28px 28px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+      border: 1px solid #e0d5b0;
+    }
+    .light-t-horse {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 54px;
+      color: #0d1a35;
+      letter-spacing: 10px;
+      line-height: 1;
+    }
+    .light-divider {
+      height: 1.5px;
+      background: linear-gradient(to right, #b8872a 60%, transparent);
+      margin: 3px 0 4px;
+    }
+    .light-t-log {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 54px;
+      color: #b8872a;
+      letter-spacing: 20px;
+      line-height: 1;
+    }
+    .light-tag {
+      font-size: 9px;
+      color: rgba(184,135,42,0.5);
+      letter-spacing: 4px;
+      font-family: 'Rajdhani', sans-serif;
+      margin-top: 7px;
+    }
+
+    /* 星のデコ */
+    .stars {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .star {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.7);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="section-label">Ver.1 — 横型（メイン推奨）</div>
+  <div class="logo-main">
+    <div class="stars">
+      <div class="star" style="width:2px;height:2px;top:18px;left:220px;opacity:.5"></div>
+      <div class="star" style="width:1.5px;height:1.5px;top:35px;left:370px;opacity:.7"></div>
+      <div class="star" style="width:1px;height:1px;top:65px;left:310px;opacity:.4"></div>
+      <div class="star" style="width:2px;height:2px;top:15px;left:290px;opacity:.6"></div>
+      <div class="star" style="width:1px;height:1px;top:80px;left:400px;opacity:.8"></div>
+      <div class="star" style="width:2px;height:2px;top:50px;left:440px;opacity:.5"></div>
+      <div class="star" style="width:1.5px;height:1.5px;top:25px;left:480px;opacity:.6"></div>
+    </div>
+    <!-- エンブレム SVG -->
+    <div class="emblem">
+      <svg viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+        <!-- 外リング -->
+        <circle cx="44" cy="44" r="41" fill="none" stroke="#e8b84b" stroke-width="2"/>
+        <!-- イクイノックス：昼夜均等（左半分薄く光る） -->
+        <path d="M44,3 A41,41 0 0,0 44,85 Z" fill="rgba(232,184,75,0.1)"/>
+        <!-- 内円 -->
+        <circle cx="44" cy="44" r="34" fill="#091428"/>
+        <!-- 縦の軸線（秋分線） -->
+        <line x1="44" y1="3" x2="44" y2="85" stroke="rgba(232,184,75,0.25)" stroke-width="1"/>
+        <!-- 上下の小さい丸（イクイノックスのシンボル） -->
+        <circle cx="44" cy="10" r="4" fill="#e8b84b" opacity="0.6"/>
+        <circle cx="44" cy="78" r="4" fill="rgba(232,184,75,0.25)"/>
+        <!-- 馬のアイコン -->
+        <text x="44" y="58" text-anchor="middle" font-size="40">🐎</text>
+      </svg>
+    </div>
+    <div class="text-block">
+      <div class="t-horse">HORSE</div>
+      <div class="t-divider"></div>
+      <div class="t-log">LOG</div>
+      <div class="t-tag">KEIBA PREDICTION &amp; AI ANALYSIS</div>
+    </div>
+  </div>
+
+  <div class="section-label">Ver.2 — アイコン型（ホーム画面用）</div>
+  <div class="logo-square">
+    <div class="sq-icon">🐎</div>
+    <div class="sq-name">HORSE <span>LOG</span></div>
+    <div class="sq-sub">競馬予想 &amp; AI分析</div>
+  </div>
+
+  <div class="section-label">Ver.3 — ミニマル</div>
+  <div class="logo-minimal">
+    <div class="min-icon">🐎</div>
+    <div class="min-vline"></div>
+    <div class="min-text">
+      <div class="min-top">HORSE</div>
+      <div class="min-bot">LOG</div>
+    </div>
+  </div>
+
+  <div class="section-label">Ver.4 — ライト（白背景）</div>
+  <div class="logo-light">
+    <svg width="88" height="88" viewBox="0 0 88 88">
+      <circle cx="44" cy="44" r="41" fill="none" stroke="#b8872a" stroke-width="2"/>
+      <path d="M44,3 A41,41 0 0,0 44,85 Z" fill="rgba(184,135,42,0.08)"/>
+      <circle cx="44" cy="44" r="34" fill="#f8f5ee"/>
+      <line x1="44" y1="3" x2="44" y2="85" stroke="rgba(184,135,42,0.2)" stroke-width="1"/>
+      <circle cx="44" cy="10" r="4" fill="#b8872a" opacity="0.7"/>
+      <circle cx="44" cy="78" r="4" fill="rgba(184,135,42,0.2)"/>
+      <text x="44" y="58" text-anchor="middle" font-size="40">🐎</text>
+    </svg>
+    <div class="text-block">
+      <div class="light-t-horse">HORSE</div>
+      <div class="light-divider"></div>
+      <div class="light-t-log">LOG</div>
+      <div class="light-tag">KEIBA PREDICTION &amp; AI ANALYSIS</div>
+    </div>
+  </div>
+
+</body>
+</html>
