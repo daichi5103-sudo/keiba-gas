@@ -2,8 +2,14 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>🏇 競馬メモ（デモ）</title>
+  <!-- PWA -->
+  <meta name="theme-color" content="#2e7d32">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="競馬メモ">
+  <link id="pwaManifestLink" rel="manifest">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
@@ -50,7 +56,44 @@ body{background:var(--bg);font-family:'Hiragino Kaku Gothic Pro','メイリオ',
 .filter-bar{background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:14px}
 .note-md-content{font-size:.875rem;line-height:1.7;white-space:pre-wrap;word-break:break-word}
 .note-md-content code{background:#f1f3f4;padding:1px 4px;border-radius:3px;font-size:.82em}
-@media(max-width:768px){.entry-table{font-size:.78rem}.hide-sp{display:none!important}.entry-table tbody td{padding:5px 6px}}
+@media(max-width:768px){
+  .entry-table{font-size:.78rem}
+  .hide-sp{display:none!important}
+  .entry-table tbody td{padding:5px 6px}
+  .race-card .card-body{padding:.5rem .75rem}
+  .filter-bar{padding:10px 12px}
+  .section-header{font-size:.88rem}
+  .budget-val{font-size:1.25rem}
+  .modal-dialog{margin:.5rem}
+  body{font-size:.875rem}
+  #app{padding:.5rem .5rem!important}
+  .navbar-brand{font-size:1rem!important}
+  /* スマホ用ボトムナビ */
+  .mobile-bottom-nav{display:flex!important}
+  .navbar-keiba .navbar-collapse .navbar-nav{display:none}
+}
+@media(min-width:769px){
+  .mobile-bottom-nav{display:none!important}
+}
+/* ===== ゲーミフィケーション ===== */
+.game-widget{background:linear-gradient(135deg,#1b5e20,#2e7d32);border-radius:12px;color:#fff}
+.game-stat-val{font-size:1.5rem;font-weight:800;line-height:1.1}
+.game-stat-label{font-size:.65rem;opacity:.8}
+.title-badge{display:inline-block;font-size:.8rem;font-weight:700;padding:3px 12px;border-radius:20px;background:rgba(255,255,255,.18);color:#fff}
+.streak-fire{background:rgba(255,193,7,.25);border-radius:20px;padding:2px 10px;font-size:.75rem}
+/* ===== AI分析 ===== */
+.ai-score-card{border-radius:6px;padding:8px 10px;margin-bottom:6px}
+.ai-score-best{background:#e8f5e9;border:1px solid #a5d6a7}
+.ai-score-worst{background:#fce4ec;border:1px solid #f48fb1}
+.ai-score-normal{background:#f9f9f9;border:1px solid #e0e0e0}
+/* ===== テンプレートボタン ===== */
+.template-btn{font-size:.7rem;padding:2px 8px;border-radius:3px;cursor:pointer;white-space:nowrap}
+/* ===== PWAインストールバー ===== */
+.pwa-install-bar{background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;padding:8px 16px;font-size:.82rem;display:none;align-items:center;gap:10px;justify-content:space-between}
+.mobile-bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e0e0e0;z-index:1000;padding-bottom:env(safe-area-inset-bottom)}
+.mobile-bottom-nav a{flex:1;display:flex;flex-direction:column;align-items:center;padding:6px 0;font-size:.62rem;color:#888;text-decoration:none;gap:1px}
+.mobile-bottom-nav a.active,.mobile-bottom-nav a:hover{color:#2e7d32}
+.mobile-bottom-nav i{font-size:1.2rem}
 /* 調教評価 */
 .training-A{background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7;font-weight:700;font-size:.7rem;padding:1px 6px;border-radius:3px;display:inline-block}
 .training-B{background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;font-weight:700;font-size:.7rem;padding:1px 6px;border-radius:3px;display:inline-block}
@@ -110,6 +153,19 @@ body{background:var(--bg);font-family:'Hiragino Kaku Gothic Pro','メイリオ',
 </head>
 <body>
 
+<!-- PWAインストールバー -->
+<div class="pwa-install-bar" id="pwaInstallBar">
+  <div><i class="bi bi-phone-fill me-2"></i><strong>ホーム画面に追加</strong>してアプリとして使えます！</div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-light btn-sm py-1 px-3 fw-bold" onclick="triggerPWAInstall()">
+      <i class="bi bi-download me-1"></i>追加する
+    </button>
+    <button class="btn btn-outline-light btn-sm py-1 px-2" onclick="document.getElementById('pwaInstallBar').style.display='none'">
+      <i class="bi bi-x"></i>
+    </button>
+  </div>
+</div>
+
 <!-- デモバナー -->
 <div class="demo-banner">
   <i class="bi bi-info-circle me-1"></i>
@@ -130,6 +186,7 @@ body{background:var(--bg);font-family:'Hiragino Kaku Gothic Pro','メイリオ',
         <li class="nav-item"><a class="nav-link rounded px-3" href="#races"><i class="bi bi-list-ul me-1"></i>レース一覧</a></li>
         <li class="nav-item"><a class="nav-link rounded px-3" href="#mynotes"><i class="bi bi-journal-text me-1"></i>マイメモ</a></li>
         <li class="nav-item"><a class="nav-link rounded px-3" href="#budget"><i class="bi bi-bar-chart-line me-1"></i>収支</a></li>
+        <li class="nav-item"><a class="nav-link rounded px-3" href="#analysis"><i class="bi bi-robot me-1"></i>AI分析</a></li>
       </ul>
       <span class="text-white-50 small" id="currentUserDisplay"></span>
     </div>
@@ -137,7 +194,27 @@ body{background:var(--bg);font-family:'Hiragino Kaku Gothic Pro','メイリオ',
 </nav>
 
 <!-- メインコンテンツ -->
-<div id="app" class="container-fluid py-3 px-3 px-md-4"></div>
+<div id="app" class="container-fluid py-3 px-3 px-md-4" style="padding-bottom:calc(70px + env(safe-area-inset-bottom))"></div>
+
+<!-- スマホ用ボトムナビ -->
+<nav class="mobile-bottom-nav" id="mobileBottomNav" style="display:none">
+  <a href="#races" class="mobile-nav-link">
+    <i class="bi bi-list-ul"></i>
+    <span>レース</span>
+  </a>
+  <a href="#mynotes" class="mobile-nav-link">
+    <i class="bi bi-journal-text"></i>
+    <span>マイメモ</span>
+  </a>
+  <a href="#budget" class="mobile-nav-link">
+    <i class="bi bi-bar-chart-line"></i>
+    <span>収支</span>
+  </a>
+  <a href="#analysis" class="mobile-nav-link">
+    <i class="bi bi-robot"></i>
+    <span>AI分析</span>
+  </a>
+</nav>
 
 <!-- メモ編集モーダル -->
 <div class="modal fade" id="noteModal" tabindex="-1">
@@ -156,6 +233,13 @@ body{background:var(--bg);font-family:'Hiragino Kaku Gothic Pro','メイリオ',
           </div>
         </div>
         <div class="mb-3">
+          <div class="d-flex align-items-center flex-wrap gap-1 mb-2">
+            <span class="text-muted" style="font-size:.72rem;white-space:nowrap">📋 テンプレ:</span>
+            <button class="btn btn-outline-success template-btn" onclick="applyNoteTemplate('predict')">🎯 予想</button>
+            <button class="btn btn-outline-primary template-btn" onclick="applyNoteTemplate('quick')">⚡ 速攻</button>
+            <button class="btn btn-outline-warning template-btn" onclick="applyNoteTemplate('review')">📊 回顧</button>
+            <button class="btn btn-outline-danger template-btn" onclick="applyNoteTemplate('watch')">👀 注目馬</button>
+          </div>
           <label class="form-label small fw-bold">メモ内容 <span class="text-muted fw-normal">（Markdown 対応）</span></label>
           <textarea id="noteContent" class="form-control font-monospace" rows="7"
             placeholder="例：&#10;**前走凡走は度外視可**（内枠で砂を被りっぱなし）&#10;今回は外枠でスムーズな競馬ができるはず&#10;上り 33.8 は世代トップクラス → *本命候補*"></textarea>
@@ -732,11 +816,16 @@ function router() {
   document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
   document.querySelector(`.nav-link[href="#${page}"]`)?.classList.add('active');
   switch(page) {
-    case 'race':    renderRaceDetail(parts[1]);  break;
-    case 'mynotes': renderMyNotes();             break;
-    case 'budget':  renderBudget();              break;
-    default:        renderRaceList();
+    case 'race':     renderRaceDetail(parts[1]);  break;
+    case 'mynotes':  renderMyNotes();             break;
+    case 'budget':   renderBudget();              break;
+    case 'analysis': renderAnalysis();            break;
+    default:         renderRaceList();
   }
+  // スマホボトムナビのアクティブ更新
+  document.querySelectorAll('.mobile-nav-link').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('href') === `#${page}`);
+  });
 }
 
 function showLoading(msg='読み込み中...') {
@@ -1908,6 +1997,306 @@ function handleDeleteRaceNote() {
     .deleteRaceNote(state._editingRaceNoteId);
 }
 
+// ============================================================
+// 📋 予想テンプレート
+// ============================================================
+
+function applyNoteTemplate(type) {
+  const templates = {
+    predict: `**本命理由:**\n\n**懸念点:**\n\n**買い目:** ◎ → ○ →`,
+    quick:   `✅ 注目ポイント:\n\n⚠️ 不安材料:\n\n💡 評価:`,
+    review:  `**結果:** 着\n\n**要因分析:**\n- ペース:\n- 馬場:\n- 騎乗:\n\n**次走展望:**`,
+    watch:   `👀 注目理由:\n\n📅 狙いのレース条件:\n- 距離:　　馬場:\n- 枠順:\n\n💰 評価:`,
+  };
+  const ta = document.getElementById('noteContent');
+  if (!ta) return;
+  const cur = ta.value.trim();
+  ta.value = cur ? cur + '\n\n' + templates[type] : templates[type];
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+// ============================================================
+// 🏆 ゲーミフィケーション
+// ============================================================
+
+function calcGameStats() {
+  const bets = loadBets();
+  const empty = { streak:0, maxStreak:0, winRate:0, roi:0, totalBets:0, hits:0,
+    title:'データなし', titleColor:'#9e9e9e', badge:'🐴', totalStake:0, totalReturn:0 };
+  if (!bets.length) return empty;
+
+  const totalStake  = bets.reduce((s, b) => s + Number(b.stake||0), 0);
+  const totalReturn = bets.reduce((s, b) => s + Number(b.return_amount||0), 0);
+  const hits        = bets.filter(b => Number(b.return_amount||0) > 0);
+  const winRate     = Math.round(hits.length / bets.length * 100);
+  const roi         = totalStake > 0 ? Math.round(totalReturn / totalStake * 100) : 0;
+
+  // 連続的中（日付・R番号昇順）
+  const sorted = [...bets].sort((a, b) => a.date.localeCompare(b.date) || (a.race_num - b.race_num));
+  let maxStreak = 0, cur = 0;
+  sorted.forEach(b => {
+    if (Number(b.return_amount||0) > 0) { cur++; if (cur > maxStreak) maxStreak = cur; }
+    else cur = 0;
+  });
+  // 現在の連続的中（末尾から）
+  let streak = 0;
+  for (const b of [...sorted].reverse()) {
+    if (Number(b.return_amount||0) > 0) streak++;
+    else break;
+  }
+
+  // 称号判定
+  let title, titleColor, badge, nextGoal;
+  if      (bets.length < 3)                  { title='見習い予想師'; titleColor='#9e9e9e'; badge='🐴'; nextGoal=`あと${3-bets.length}レースで新米昇格！`; }
+  else if (roi >= 150 && winRate >= 40)      { title='伝説の予想師'; titleColor='#f9a825'; badge='👑'; nextGoal='頂点に立った！'; }
+  else if (roi >= 130 || (winRate >= 50 && roi >= 100)) { title='天才予想師'; titleColor='#e53935'; badge='🏆'; nextGoal='伝説まであと一歩！'; }
+  else if (roi >= 110 || winRate >= 45)      { title='凄腕予想師'; titleColor='#1565c0'; badge='⭐'; nextGoal='天才まであと少し！'; }
+  else if (roi >= 100 || winRate >= 35)      { title='一流予想師'; titleColor='#2e7d32'; badge='🎯'; nextGoal='凄腕を目指せ！'; }
+  else if (roi >= 80  || winRate >= 25)      { title='ベテラン予想師'; titleColor='#6d4c41'; badge='📚'; nextGoal='回収率100%を目指そう！'; }
+  else if (bets.length >= 5)                 { title='修行中の予想師'; titleColor='#607d8b'; badge='📝'; nextGoal='継続は力なり！'; }
+  else                                        { title='新米予想師'; titleColor='#607d8b'; badge='🔰'; nextGoal='まず5レース記録しよう！'; }
+
+  return { streak, maxStreak, winRate, roi, totalBets: bets.length, hits: hits.length,
+    title, titleColor, badge, nextGoal, totalStake, totalReturn };
+}
+
+function renderGameStatsWidget() {
+  const s = calcGameStats();
+  const profit = s.totalReturn - s.totalStake;
+  return `
+    <div class="game-widget card border-0 shadow-sm mb-3">
+      <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+          <div class="text-center" style="min-width:90px">
+            <div style="font-size:2.6rem;line-height:1">${s.badge}</div>
+            <div class="title-badge mt-2">${s.title}</div>
+            <div style="font-size:.65rem;opacity:.7;margin-top:4px">${escHtml(s.nextGoal||'')}</div>
+          </div>
+          <div class="flex-grow-1">
+            <div class="row g-2 text-center">
+              <div class="col-3">
+                <div class="game-stat-val">${s.totalBets}</div>
+                <div class="game-stat-label">総レース</div>
+              </div>
+              <div class="col-3">
+                <div class="game-stat-val" style="color:#f9a825">${s.winRate}%</div>
+                <div class="game-stat-label">的中率</div>
+              </div>
+              <div class="col-3">
+                <div class="game-stat-val" style="color:${s.roi>=100?'#a5d6a7':'#ef9a9a'}">${s.roi}%</div>
+                <div class="game-stat-label">回収率</div>
+              </div>
+              <div class="col-3">
+                <div class="game-stat-val" style="color:#ffe082">${s.streak}<small style="font-size:.8rem">連</small></div>
+                <div class="game-stat-label">連続的中</div>
+              </div>
+            </div>
+            ${s.streak > 0 ? `
+              <div class="mt-2">
+                <span class="streak-fire">🔥 ${s.streak}連続的中中！（最長:${s.maxStreak}連）</span>
+              </div>` : s.maxStreak > 1 ? `
+              <div class="mt-2" style="font-size:.73rem;opacity:.7">最長連続的中: ${s.maxStreak}連</div>` : ''}
+            <div class="mt-2" style="font-size:.72rem;opacity:.7">
+              総投資 ¥${s.totalStake.toLocaleString()} / 収支
+              <span style="color:${profit>=0?'#a5d6a7':'#ef9a9a'};font-weight:700">${profit>=0?'+':''}¥${profit.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// 🤖 AI傾向分析
+// ============================================================
+
+function calcAIAnalysis() {
+  const bets = loadBets();
+  if (bets.length < 3) return null;
+
+  const raceMap = {};
+  MOCK.races.forEach(r => { raceMap[r.race_id] = r; });
+
+  const bySurface = {}, byDist = { '〜1400m':[], '1600m':[], '1800m':[], '2000m〜':[] };
+  const byBetType = {}, byVenue = {};
+
+  bets.forEach(b => {
+    const race = raceMap[b.race_id] || {};
+    const hit  = Number(b.return_amount||0) > 0;
+    const entry = { hit, stake: Number(b.stake||0), ret: Number(b.return_amount||0) };
+
+    // 馬場別
+    const surf = race.surface || b.venue ? (race.surface||'不明') : '不明';
+    if (!bySurface[surf]) bySurface[surf] = [];
+    bySurface[surf].push(entry);
+
+    // 距離帯別
+    const dist = Number(race.distance||0);
+    const dKey = dist <= 1400 ? '〜1400m' : dist === 1600 ? '1600m' : dist <= 1900 ? '1800m' : dist > 0 ? '2000m〜' : null;
+    if (dKey) byDist[dKey].push(entry);
+
+    // 式別
+    const bt = b.bet_type || '不明';
+    if (!byBetType[bt]) byBetType[bt] = [];
+    byBetType[bt].push(entry);
+
+    // 競馬場別
+    const venue = b.venue || race.venue || '不明';
+    if (!byVenue[venue]) byVenue[venue] = [];
+    byVenue[venue].push(entry);
+  });
+
+  const summarize = arr => {
+    if (!arr.length) return null;
+    const hits = arr.filter(e => e.hit).length;
+    const stake = arr.reduce((s, e) => s + e.stake, 0);
+    const ret   = arr.reduce((s, e) => s + e.ret, 0);
+    return { count: arr.length, winRate: Math.round(hits/arr.length*100),
+      roi: stake > 0 ? Math.round(ret/stake*100) : 0, profit: ret - stake };
+  };
+
+  const toArr = obj => Object.entries(obj).map(([k,v]) => ({ label:k, ...summarize(v) })).filter(x=>x.count>0);
+
+  return {
+    surface:  toArr(bySurface).sort((a,b)=>b.roi-a.roi),
+    distance: Object.entries(byDist).filter(([,v])=>v.length>0).map(([k,v])=>({label:k,...summarize(v)})),
+    betType:  toArr(byBetType).sort((a,b)=>b.count-a.count),
+    venue:    toArr(byVenue).sort((a,b)=>b.count-a.count),
+    totalBets: bets.length,
+  };
+}
+
+function renderAnalysis() {
+  const ai = calcAIAnalysis();
+  const gs = calcGameStats();
+
+  const scoreCard = (label, icon, stats, cls) => {
+    if (!stats) return '';
+    const roi = stats.roi, wr = stats.winRate;
+    const bg = cls==='best'?'ai-score-best':cls==='worst'?'ai-score-worst':'ai-score-normal';
+    return `
+      <div class="ai-score-card ${bg}">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <span style="font-size:.82rem;font-weight:700">${icon} ${escHtml(label)}</span>
+            <small class="text-muted ms-1">${stats.count}戦</small>
+            ${cls==='best'?'<span class="ms-1 badge bg-success" style="font-size:.6rem">◎得意</span>':''}
+            ${cls==='worst'?'<span class="ms-1 badge bg-danger" style="font-size:.6rem">△苦手</span>':''}
+          </div>
+          <div class="text-end">
+            <span class="${wr>=40?'text-success':wr<20?'text-danger':'text-secondary'} fw-bold" style="font-size:.85rem">${wr}%的中</span>
+            <span class="${roi>=100?'text-success':'text-danger'} fw-bold ms-2" style="font-size:.85rem">${roi}%回収</span>
+          </div>
+        </div>
+      </div>`;
+  };
+
+  const bw = arr => {
+    const f = arr.filter(a=>a.count>=2);
+    if (f.length < 2) return { best:null, worst:null };
+    const s = [...f].sort((a,b)=>b.roi-a.roi);
+    return { best:s[0].label, worst:s[s.length-1].label };
+  };
+
+  // AIコメント生成
+  const tips = [];
+  if (ai) {
+    const bestSurf = ai.surface.find(s=>s.count>=2&&s.roi>=100);
+    if (bestSurf) tips.push(`✅ <strong>${bestSurf.label}</strong>は回収率${bestSurf.roi}%と好成績！得意な条件です。`);
+    const worstSurf = [...(ai.surface)].sort((a,b)=>a.roi-b.roi).find(s=>s.count>=2&&s.roi<70);
+    if (worstSurf) tips.push(`⚠️ <strong>${worstSurf.label}</strong>は回収率${worstSurf.roi}%。買い控えも検討を。`);
+    const bestBt = ai.betType.find(b=>b.count>=2&&b.roi>=110);
+    if (bestBt) tips.push(`💡 <strong>${bestBt.label}</strong>は相性◎（回収率${bestBt.roi}%）。積極的に狙おう！`);
+    const bestV = [...(ai.venue)].sort((a,b)=>b.roi-a.roi).find(v=>v.count>=2&&v.roi>=110);
+    if (bestV) tips.push(`🏇 <strong>${bestV.label}</strong>は得意競馬場（回収率${bestV.roi}%）！`);
+    if (gs.streak >= 3) tips.push(`🔥 現在${gs.streak}連続的中中！この調子を維持しよう！`);
+    if (!tips.length) tips.push('📊 データが蓄積されるとより詳細なアドバイスが出ます。馬券を記録し続けましょう！');
+  }
+
+  document.getElementById('app').innerHTML = `
+    <div class="d-flex align-items-center mb-3 gap-2">
+      <h5 class="mb-0 fw-bold"><i class="bi bi-robot me-2 text-success"></i>AI予想分析</h5>
+      <small class="text-muted">あなたの傾向を自動分析</small>
+    </div>
+
+    <!-- ゲーミフィケーション -->
+    ${renderGameStatsWidget()}
+
+    <!-- AIアドバイス -->
+    ${ai ? `
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h6 class="section-header"><i class="bi bi-lightbulb me-1 text-warning"></i>AIからのアドバイス</h6>
+        <div class="p-3 rounded mb-3" style="background:#e8f5e9;border:1px solid #a5d6a7;font-size:.85rem;line-height:2">
+          ${tips.map(t=>`<div>${t}</div>`).join('')}
+        </div>
+
+        <div class="row g-3">
+          ${(() => {
+            const sbw=bw(ai.surface), dbw=bw(ai.distance);
+            return `
+            <div class="col-md-6">
+              <div class="fw-bold small text-muted mb-2"><i class="bi bi-moisture me-1"></i>馬場別</div>
+              ${ai.surface.map(s=>scoreCard(s.label, s.label==='芝'?'🌿':'🟤', s, s.label===sbw.best?'best':s.label===sbw.worst?'worst':'')).join('')}
+            </div>
+            <div class="col-md-6">
+              <div class="fw-bold small text-muted mb-2"><i class="bi bi-rulers me-1"></i>距離帯別</div>
+              ${ai.distance.map(d=>scoreCard(d.label,'📏',d,d.label===dbw.best?'best':d.label===dbw.worst?'worst':'')).join('')}
+            </div>
+            <div class="col-md-6">
+              <div class="fw-bold small text-muted mb-2"><i class="bi bi-ticket-detailed me-1"></i>式別</div>
+              ${ai.betType.map(b=>scoreCard(b.label,'🎫',b,'')).join('')}
+            </div>
+            <div class="col-md-6">
+              <div class="fw-bold small text-muted mb-2"><i class="bi bi-geo-alt me-1"></i>競馬場別</div>
+              ${ai.venue.map(v=>scoreCard(v.label,'🏇',v,'')).join('')}
+            </div>`;
+          })()}
+        </div>
+      </div>
+    </div>` : `
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-bar-chart fs-1 d-block mb-3"></i>
+        <p>馬券を3件以上記録するとAI分析が始まります！</p>
+        <a href="#budget" class="btn btn-success btn-sm"><i class="bi bi-plus-lg me-1"></i>馬券を記録する</a>
+      </div>
+    </div>`}
+
+    <!-- 称号一覧 -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h6 class="section-header"><i class="bi bi-trophy me-1 text-warning"></i>称号ロードマップ</h6>
+        <div class="row g-2">
+          ${[
+            ['🐴','見習い予想師','データ記録スタート','#9e9e9e'],
+            ['🔰','新米予想師','3件以上記録','#607d8b'],
+            ['📝','修行中の予想師','5件以上記録','#6d4c41'],
+            ['📚','ベテラン予想師','回収率80%or的中率25%','#6d4c41'],
+            ['🎯','一流予想師','回収率100%or的中率35%','#2e7d32'],
+            ['⭐','凄腕予想師','回収率110%or的中率45%','#1565c0'],
+            ['🏆','天才予想師','回収率130%or的中率50%','#e53935'],
+            ['👑','伝説の予想師','回収率150%&的中率40%','#f9a825'],
+          ].map(([badge, title, cond, color]) => {
+            const isCurrent = gs.title === title;
+            return `
+            <div class="col-6 col-md-3">
+              <div class="p-2 rounded text-center ${isCurrent?'shadow':'opacity-75'}"
+                style="background:${isCurrent?'rgba(46,125,50,.1)':'#f9f9f9'};border:1px solid ${isCurrent?color:'#e0e0e0'};${isCurrent?'border-width:2px':''}">
+                <div style="font-size:1.5rem">${badge}</div>
+                <div style="font-size:.72rem;font-weight:700;color:${color}">${title}</div>
+                <div style="font-size:.62rem;color:#888">${cond}</div>
+                ${isCurrent?'<div class="badge bg-success mt-1" style="font-size:.6rem">← 現在</div>':''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // ── 大口投票フラグ ──
 function renderTanpukuBadge(tan, fuku, pop) {
   if(!fuku) return '';
@@ -1923,6 +2312,72 @@ function renderTanpukuBadge(tan, fuku, pop) {
   }
   return `<br><span style="font-size:.63rem;color:#aaa" title="単複比${ratio}">複${fuku}倍</span>`;
 }
+
+// ============================================================
+// 📱 PWA / スマホ対応
+// ============================================================
+
+(function initPWA() {
+  // Web App Manifest を動的生成
+  const manifest = {
+    name: '競馬メモ',
+    short_name: '競馬メモ',
+    description: '競馬予想・収支管理アプリ',
+    start_url: './',
+    display: 'standalone',
+    background_color: '#f4f6f4',
+    theme_color: '#2e7d32',
+    icons: [
+      { src: 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/trophy-fill.svg', sizes: '192x192', type: 'image/svg+xml' },
+      { src: 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/trophy-fill.svg', sizes: '512x512', type: 'image/svg+xml' },
+    ],
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const link = document.getElementById('pwaManifestLink');
+  if (link) link.href = url;
+
+  // PWAインストールプロンプトをキャッチ
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const bar = document.getElementById('pwaInstallBar');
+    if (bar) { bar.style.display = 'flex'; }
+  });
+  window.triggerPWAInstall = async () => {
+    if (!deferredPrompt) {
+      // iOS向け案内
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      if (isIOS) {
+        alert('📱 iPhoneでのインストール方法:\n\nSafariで開き、画面下の「共有」ボタン → 「ホーム画面に追加」をタップしてください！');
+      } else {
+        alert('📱 ホーム画面への追加:\n\nブラウザのメニュー → 「ホーム画面に追加」または「アプリをインストール」を選択してください。');
+      }
+      return;
+    }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      document.getElementById('pwaInstallBar').style.display = 'none';
+      showToast('🎉 インストールしました！ホーム画面から起動できます');
+    }
+    deferredPrompt = null;
+  };
+
+  // スマホ判定 → ボトムナビ表示
+  function checkMobile() {
+    const nav = document.getElementById('mobileBottomNav');
+    if (!nav) return;
+    const isMobile = window.innerWidth < 768;
+    nav.style.display = isMobile ? 'flex' : 'none';
+    // コンテンツの下余白も調整
+    const app = document.getElementById('app');
+    if (app) app.style.paddingBottom = isMobile ? 'calc(70px + env(safe-area-inset-bottom))' : '1rem';
+  }
+  window.addEventListener('resize', checkMobile);
+  document.addEventListener('DOMContentLoaded', checkMobile);
+})();
 
 // 四つ角を 1角→2角→3角→4角 形式でインライン表示
 function renderCornerInline(r) {
